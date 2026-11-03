@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>字帖產生器</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Noto Serif TC (思源宋體，用於介面典雅標題) & KaiTi 備援 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;700;900&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* 預設楷體字型堆疊（適應 Windows, macOS, iOS, Android, Linux） */
+    .font-kaiti {
+      font-family: var(--practice-font, "BiauKai", "DFKai-SB", "標楷體", "Kaiti TC", "KaiTi", "STKaiti", "Noto Serif TC", serif);
+    }
+    .font-title {
+      font-family: "Noto Serif TC", "Songti TC", "STSong", serif;
+    }
+
+    /* A4 實體列印規格 (210mm x 297mm) */
+    .sheet-a4 {
+      width: 210mm;
+      height: 297mm;
+      max-height: 297mm;
+      box-sizing: border-box;
+      background: #ffffff;
+      margin-left: auto;
+      margin-right: auto;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* 螢幕預覽模式下的紙張陰影與分頁區隔 */
+    @media screen {
+      .sheet-preview {
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 24px;
+        border-radius: 4px;
+      }
+    }
+
+    /* 列印專用 CSS 規範：精準隱藏控制選單，保留 A4 頁面完美輸出 */
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 0mm;
+      }
+      html, body {
+        width: 210mm;
+        height: 297mm;
+        background: #ffffff !important;
+        color: #000000 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: block !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      aside, nav, header {
+        display: none !important;
+      }
+      main {
+        padding: 0 !important;
+        margin: 0 !important;
+        background: #ffffff !important;
+        display: block !important;
+        width: 210mm !important;
+        height: 297mm !important;
+      }
+      #pagesContainer {
+        display: block !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 210mm !important;
+      }
+      .sheet-preview {
+        box-shadow: none !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        width: 210mm !important;
+        height: 297mm !important;
+        max-height: 297mm !important;
+        page-break-inside: avoid !important;
+        page-break-after: always !important;
+        break-inside: avoid !important;
+        break-after: page !important;
+        overflow: hidden !important;
+        position: relative !important;
+      }
+      .sheet-preview:last-child {
+        page-break-after: avoid !important;
+        break-after: avoid !important;
+      }
+    }
+
+    /* 自訂拉霸與選單樣式 */
+    input[type=range] {
+      accent-color: #563F2E;
+    }
+    input[type=checkbox], input[type=radio] {
+      accent-color: #563F2E;
+    }
+  </style>
+</head>
+<body class="bg-stone-100 text-stone-800 font-sans antialiased min-h-screen flex flex-col lg:flex-row">
+
+  <!-- ======================== 左側/控制側邊欄 (no-print) ======================== -->
+  <aside class="no-print w-full lg:w-[410px] lg:h-screen lg:overflow-y-auto bg-stone-50 border-r border-stone-200 shadow-sm flex flex-col z-20">
+    <!-- 頂部 Logo / 標題 -->
+    <div class="p-5 border-b border-stone-200 bg-white sticky top-0 z-10 flex items-center justify-between">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#563F2E] text-white font-title text-lg font-bold shadow-inner">
+            字
+          </span>
+          <h1 class="text-xl font-bold font-title text-stone-900 tracking-wider">字帖產生器</h1>
+        </div>
+        <p class="text-xs text-stone-500 mt-1">自訂文本 · 多樣格線 · 一鍵列印成冊</p>
+      </div>
+
+      <button id="btnPrintTop" class="bg-[#563F2E] hover:bg-[#433123] active:scale-95 text-white font-medium px-4 py-2 rounded-lg text-sm shadow transition flex items-center gap-1.5 cursor-pointer">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+        </svg>
+        <span>列印 / 匯出</span>
+      </button>
+    </div>
+
+    <!-- 控制面板滾動主體 -->
+    <div class="p-5 space-y-6 flex-1">
+
+      <!-- 1. 練習文本輸入與方向 -->
+      <section class="bg-white p-4 rounded-xl border border-stone-200 shadow-sm space-y-3">
+        <div class="flex items-center justify-between">
+          <label class="font-bold text-stone-800 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-[#563F2E]"></span>
+            練習內容與排版
+          </label>
+          <!-- 書寫方向切換 -->
+          <div class="inline-flex rounded-lg border border-stone-300 p-0.5 bg-stone-100 text-xs">
+            <label class="cursor-pointer px-2 py-0.5 rounded text-stone-600 has-[:checked]:bg-white has-[:checked]:text-[#563F2E] has-[:checked]:font-bold has-[:checked]:shadow-sm transition">
+              <input type="radio" name="writeDirection" value="vertical" checked class="hidden">
+              直式 (傳統)
+            </label>
+            <label class="cursor-pointer px-2 py-0.5 rounded text-stone-600 has-[:checked]:bg-white has-[:checked]:text-[#563F2E] has-[:checked]:font-bold has-[:checked]:shadow-sm transition">
+              <input type="radio" name="writeDirection" value="horizontal" class="hidden">
+              橫式
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <span class="text-xs text-stone-500 block mb-1">快捷範本</span>
+          <select id="quickSampleSelect" class="w-full text-xs border border-stone-300 rounded-lg p-2 bg-stone-50 text-stone-700 focus:border-[#563F2E] focus:outline-none">
+            <option value="">-- 選擇經典範本一鍵載入 --</option>
+            <option value="靜夜思\n床前明月光，疑是地上霜。\n舉頭望明月，低頭思故鄉。">李白 · 靜夜思</option>
+            <option value="春曉\n春眠不覺曉，處處聞啼鳥。\n夜來風雨聲，花落知多少。">孟浩然 · 春曉</option>
+            <option value="登鸛雀樓\n白日依山盡，黃河入海流。\n欲窮千里目，更上一層樓。">王之渙 · 登鸛雀樓</option>
+            <option value="千字文節選\n天地玄黃，宇宙洪荒。\n日月盈昃，辰宿列張。\n寒來暑往，秋收冬藏。">千字文（精選六句）</option>
+            <option value="弟子規節選\n弟子規，聖人訓。\n首孝弟，次謹信。\n汎愛眾，而親仁。">弟子規（入則孝）</option>
+          </select>
+        </div>
+
+        <div>
+          <textarea id="textContent" rows="5" class="w-full text-sm border border-stone-300 rounded-lg p-2.5 bg-stone-50 font-kaiti leading-relaxed focus:bg-white focus:border-[#563F2E] focus:ring-1 focus:ring-[#563F2E] focus:outline-none transition" placeholder="請輸入欲練習的文字，支援多行詩詞..."></textarea>
+        </div>
+
+        <div class="flex items-center justify-between text-xs text-stone-500">
+          <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
+            <input type="checkbox" id="skipPunctuation" checked class="rounded border-stone-300">
+            <span>過濾標點符號與空白</span>
+          </label>
+          <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
+            <input type="checkbox" id="preserveLineBreaks" checked class="rounded border-stone-300">
+            <span>保留斷行（每句獨立新欄）</span>
+          </label>
+        </div>
+        <div class="text-right text-xs text-stone-400">
+          <span id="charCountLabel">字數：0 字</span>
+        </div>
+      </section>
+
+      <!-- 1.5 字型選擇與自訂字型 -->
+      <section class="bg-white p-4 rounded-xl border border-stone-200 shadow-sm space-y-3">
+        <label class="font-bold text-stone-800 flex items-center justify-between">
+          <span class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-[#563F2E]"></span>
+            字型選擇與自訂
+          </span>
+          <span id="fontStatusBadge" class="text-[11px] font-normal text-[#563F2E] bg-[#f5ede7] px-2 py-0.5 rounded border border-[#e6d8ce]">
+            系統楷體
+          </span>
+        </label>
+
+        <div>
+          <span class="text-xs text-stone-500 block mb-1">預設字型風格</span>
+          <select id="fontFamilySelect" class="w-full text-xs border border-stone-300 rounded-lg p-2 bg-stone-50 text-stone-800 focus:border-[#563F2E] focus:outline-none">
+            <option value="kaiti" selected>標準楷體 / 標楷體（最推薦練習）</option>
+            <option value="serif">思源宋體 / 明體（典雅嚴謹）</option>
+            <option value="sans">思源黑體（現代剛挺）</option>
+            <option value="lishu">隸書風格（古樸平正，需系統支援）</option>
+            <option value="xingkai">行楷 / 行書風格（行氣流暢，需系統支援）</option>
+            <option value="custom-name">自訂電腦已安裝字型名稱...</option>
+            <option value="custom-file">上傳字型檔案 (.ttf / .otf / .woff)...</option>
+          </select>
+        </div>
+
+        <div id="customNameArea" class="hidden space-y-1.5 pt-1">
+          <div class="flex items-center justify-between text-xs">
+            <span class="text-stone-600 font-medium">輸入字型名稱</span>
+            <span class="text-stone-400 text-[11px]">如：華康楷書體、全字庫正楷體</span>
+          </div>
+          <div class="flex gap-2">
+            <input type="text" id="customFontNameInput" placeholder="例如：DFKai-SB, KingHwKai" class="flex-1 text-xs border border-stone-300 rounded p-1.5 focus:border-[#563F2E] focus:outline-none">
+            <button type="button" id="btnApplyFontName" class="px-3 py-1.5 bg-[#563F2E] text-white rounded text-xs hover:bg-[#433123] transition">套用</button>
+          </div>
+        </div>
+
+        <div id="customFileArea" class="hidden space-y-2 pt-1">
+          <label class="block w-full border-2 border-dashed border-stone-300 hover:border-[#563F2E] rounded-lg p-3 text-center cursor-pointer bg-stone-50/60 hover:bg-stone-50 transition">
+            <input type="file" id="fontFileInput" accept=".ttf,.otf,.woff,.woff2" class="hidden">
+            <div class="flex flex-col items-center justify-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-stone-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <span id="fontFileLabel" class="text-xs text-stone-700 font-medium">選擇字型檔 (.ttf / .otf / .woff)</span>
+              <span class="text-[10px] text-stone-400">直接載入名家字帖或書法字庫</span>
+            </div>
+          </label>
+        </div>
+      </section>
+
+      <!-- 2. 練字模式 & 描紅設定 -->
+      <section class="bg-white p-4 rounded-xl border border-stone-200 shadow-sm space-y-4">
+        <label class="font-bold text-stone-800 flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-[#563F2E]"></span>
+          描紅與排版模式
+        </label>
+
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <label class="border border-stone-200 rounded-lg p-2.5 flex flex-col gap-1 cursor-pointer hover:border-[#8c6b51] transition bg-stone-50 has-[:checked]:border-[#563F2E] has-[:checked]:bg-[#f7f2ee]">
+            <div class="flex items-center gap-1.5 font-semibold text-stone-800">
+              <input type="radio" name="practiceMode" value="all-trace" checked>
+              全篇描紅
+            </div>
+            <span class="text-stone-500 text-[11px]">每個格子均有描紅淺字，適合初學基礎</span>
+          </label>
+
+          <label class="border border-stone-200 rounded-lg p-2.5 flex flex-col gap-1 cursor-pointer hover:border-[#8c6b51] transition bg-stone-50 has-[:checked]:border-[#563F2E] has-[:checked]:bg-[#f7f2ee]">
+            <div class="flex items-center gap-1.5 font-semibold text-stone-800">
+              <input type="radio" name="practiceMode" value="first-black-trace">
+              首字黑＋後描紅
+            </div>
+            <span class="text-stone-500 text-[11px]" id="firstBlackDesc">每欄頂部第一字為黑體，其餘描紅</span>
+          </label>
+
+          <label class="border border-stone-200 rounded-lg p-2.5 flex flex-col gap-1 cursor-pointer hover:border-[#8c6b51] transition bg-stone-50 has-[:checked]:border-[#563F2E] has-[:checked]:bg-[#f7f2ee]">
+            <div class="flex items-center gap-1.5 font-semibold text-stone-800">
+              <input type="radio" name="practiceMode" value="row-trace-row-blank">
+              隔行自寫
+            </div>
+            <span class="text-stone-500 text-[11px]" id="alternateDesc">一欄描紅臨摹，鄰近一欄留白練習</span>
+          </label>
+
+          <label class="border border-stone-200 rounded-lg p-2.5 flex flex-col gap-1 cursor-pointer hover:border-[#8c6b51] transition bg-stone-50 has-[:checked]:border-[#563F2E] has-[:checked]:bg-[#f7f2ee]">
+            <div class="flex items-center gap-1.5 font-semibold text-stone-800">
+              <input type="radio" name="practiceMode" value="char-trace-blank">
+              一描一寫
+            </div>
+            <span class="text-stone-500 text-[11px]">一字描紅後緊隨一個空白田字格獨立書寫</span>
+          </label>
+        </div>
+
+        <div class="space-y-2 pt-2 border-t border-stone-100">
+          <div class="flex justify-between items-center text-xs">
+            <span class="text-stone-600 font-medium">描紅顏色</span>
+            <div class="flex gap-2">
+              <button type="button" class="color-preset-btn px-2 py-0.5 rounded border border-stone-300 text-xs text-stone-700 hover:bg-stone-100" data-color="#b0b0b0">標準淺灰</button>
+              <button type="button" class="color-preset-btn px-2 py-0.5 rounded border border-stone-300 text-xs text-stone-700 hover:bg-stone-100" data-color="#d4d4d4">極淡灰</button>
+              <button type="button" class="color-preset-btn px-2 py-0.5 rounded border border-stone-300 text-xs text-stone-700 hover:bg-stone-100" data-color="#bda08c">古棕淡彩</button>
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            <input type="color" id="traceColor" value="#b0b0b0" class="w-8 h-8 p-0 border border-stone-300 rounded cursor-pointer">
+            <input type="range" id="traceOpacity" min="20" max="100" value="85" class="flex-1">
+            <span id="opacityLabel" class="text-xs text-stone-500 w-10 text-right">85%</span>
+          </div>
+        </div>
+
+        <div class="space-y-1 pt-2 border-t border-stone-100">
+          <div class="flex justify-between items-center text-xs">
+            <span class="text-stone-600 font-medium">字體佔格比例</span>
+            <span id="fontScaleLabel" class="text-stone-500">76%</span>
+          </div>
+          <input type="range" id="fontScale" min="50" max="92" value="76" class="w-full">
+        </div>
+      </section>
+
+      <!-- 3. 格線樣式與規格 -->
+      <section class="bg-white p-4 rounded-xl border border-stone-200 shadow-sm space-y-4">
+        <label class="font-bold text-stone-800 flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-[#563F2E]"></span>
+          格線規格與樣式
+        </label>
+
+        <div>
+          <label class="text-xs text-stone-500 block mb-1">格子輔助線型式</label>
+          <select id="gridTypeSelect" class="w-full border border-stone-300 rounded-lg p-2 bg-stone-50 text-xs focus:border-[#563F2E] focus:outline-none">
+            <option value="tian" selected>田字格 (十字中心線)</option>
+            <option value="mi">米字格 (十字 + 雙對角線)</option>
+            <option value="jiu">九宮格 (精細九格網)</option>
+            <option value="blank">空白格 (純外框無內線)</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-stone-500 block mb-1">每行格子數 (欄)</label>
+            <select id="gridCols" class="w-full border border-stone-300 rounded-lg p-2 bg-stone-50 focus:border-[#563F2E] focus:outline-none text-xs">
+              <option value="8">8 格 (字體大)</option>
+              <option value="10">10 格 (標準大)</option>
+              <option value="11">11 格</option>
+              <option value="12" selected>12 格 (標準小楷)</option>
+              <option value="14">14 格</option>
+              <option value="16">16 格 (高密度)</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-stone-500 block mb-1">每頁行數 (列)</label>
+            <select id="gridRows" class="w-full border border-stone-300 rounded-lg p-2 bg-stone-50 focus:border-[#563F2E] focus:outline-none text-xs">
+              <option value="10">10 行</option>
+              <option value="12">12 行</option>
+              <option value="14" selected>14 行 (推薦)</option>
+              <option value="16">16 行</option>
+              <option value="18">18 行</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="space-y-2 pt-2 border-t border-stone-100">
+          <label class="text-xs text-stone-600 font-medium block">格線配色風格</label>
+          <div class="grid grid-cols-3 gap-2">
+            <button type="button" class="grid-style-btn py-1.5 px-2 rounded-lg border text-xs text-center border-[#563F2E] bg-[#f5ede7] text-[#563F2E] font-medium" data-outer="#563F2E" data-inner="#7a5c45" data-opacity="0.85">
+              古木褐 (典雅)
+            </button>
+            <button type="button" class="grid-style-btn py-1.5 px-2 rounded-lg border text-xs text-center border-stone-300 hover:bg-stone-50 text-stone-700" data-outer="#78716c" data-inner="#a8a29e" data-opacity="0.75">
+              文人灰 (靜心)
+            </button>
+            <button type="button" class="grid-style-btn py-1.5 px-2 rounded-lg border text-xs text-center border-stone-300 hover:bg-stone-50 text-stone-700" data-outer="#0284c7" data-inner="#38bdf8" data-opacity="0.75">
+              青墨藍 (清秀)
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 pt-2 border-t border-stone-100">
+          <div>
+            <label class="text-xs text-stone-500 block mb-1">內虛線樣式</label>
+            <select id="innerLineStyle" class="w-full text-xs border border-stone-300 rounded p-1.5 bg-stone-50">
+              <option value="3,3" selected>疏虛線 (3-3)</option>
+              <option value="2,2">密虛線 (2-2)</option>
+              <option value="1,2">圓點點線 (1-2)</option>
+              <option value="solid">細實線</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-stone-500 block mb-1">格子間距 (mm)</label>
+            <input type="number" id="gridGap" min="0" max="6" value="0" class="w-full text-xs border border-stone-300 rounded p-1.5 bg-stone-50">
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. 頁首與資訊欄 -->
+      <section class="bg-white p-4 rounded-xl border border-stone-200 shadow-sm space-y-3">
+        <div class="flex items-center justify-between">
+          <label class="font-bold text-stone-800 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-[#563F2E]"></span>
+            字帖頁眉與署名
+          </label>
+          <label class="inline-flex items-center gap-1 cursor-pointer select-none text-xs text-stone-600">
+            <input type="checkbox" id="showHeader" checked class="rounded border-stone-300">
+            <span>顯示頁眉</span>
+          </label>
+        </div>
+
+        <div id="headerSettingsArea" class="space-y-2 pt-1 text-xs">
+          <div>
+            <span class="text-stone-500 block mb-1">字帖標題</span>
+            <input type="text" id="sheetTitle" value="字帖產生器" class="w-full border border-stone-300 rounded p-1.5 font-title text-stone-800">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <span class="text-stone-500 block mb-1">署名 / 習字者</span>
+              <input type="text" id="sheetAuthor" placeholder="姓名：____________" class="w-full border border-stone-300 rounded p-1.5">
+            </div>
+            <div>
+              <span class="text-stone-500 block mb-1">日期欄</span>
+              <input type="text" id="sheetDate" value="日期：____ 年 ____ 月 ____ 日" placeholder="日期：____ 年 ____ 月 ____ 日" class="w-full border border-stone-300 rounded p-1.5">
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 底端操作按鈕 -->
+      <div class="pt-2 pb-6 space-y-3">
+        <button id="btnPrintBottom" class="w-full py-3 bg-[#563F2E] hover:bg-[#433123] active:scale-[0.99] text-white font-bold rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer text-base">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+          </svg>
+          立即列印 / 匯出 PDF
+        </button>
+
+        <p class="text-[11px] text-stone-500 text-center leading-relaxed">
+          💡 提示：在列印視窗中，請將【目的地】設為「另存為 PDF」或實體印表機，並在更多設定中將【邊界】設定為「無」以獲得最佳效果。
+        </p>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- ======================== 右側/字帖即時預覽區 ======================== -->
+  <main class="flex-1 bg-stone-200/70 p-4 lg:p-8 lg:h-screen lg:overflow-y-auto flex flex-col items-center">
+    
+    <div class="no-print w-full max-w-[210mm] flex items-center justify-between mb-4 px-2 text-stone-600 text-xs">
+      <div class="flex items-center gap-2">
+        <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span class="font-medium text-stone-700">A4 即時預覽</span>
+        <span id="pageCountBadge" class="bg-stone-300/80 text-stone-800 px-2 py-0.5 rounded-full font-semibold">共 1 頁</span>
+      </div>
+      <div class="text-stone-500">
+        標準 210 × 297 mm
+      </div>
+    </div>
+
+    <div id="pagesContainer" class="w-full flex flex-col items-center"></div>
+
+  </main>
+
+  <!-- ======================== 核心邏輯 JavaScript ======================== -->
+  <script>
+    const DEFAULT_TEXT = `靜夜思
+床前明月光，疑是地上霜。
+舉頭望明月，低頭思故鄉。
+
+春夜喜雨
+好雨知時節，當春乃發生。
+隨風潛入夜，潤物細無聲。`;
+
+    const state = {
+      text: DEFAULT_TEXT,
+      direction: 'vertical',
+      skipPunctuation: true,
+      preserveLineBreaks: true,
+      mode: 'all-trace',
+      gridType: 'tian',
+      fontType: 'kaiti',
+      activeFontFamily: '"BiauKai", "DFKai-SB", "標楷體", "Kaiti TC", "KaiTi", "STKaiti", "Noto Serif TC", serif',
+      customFontLoaded: false,
+      traceColor: '#b0b0b0',
+      traceOpacity: 0.85,
+      fontScale: 0.76,
+      cols: 12,
+      rows: 14,
+      gridGapMm: 0,
+      gridOuterColor: '#c2410c',
+      gridInnerColor: '#ea580c',
+      gridOpacity: 0.8,
+      innerDash: '3,3',
+      showHeader: true,
+      title: '字帖產生器',
+      author: '姓名：____________',
+      date: '日期：____ 年 ____ 月 ____ 日'
+    };
+
+    const PRESET_FONTS = {
+      kaiti: '"BiauKai", "DFKai-SB", "標楷體", "Kaiti TC", "KaiTi", "STKaiti", "Noto Serif TC", serif',
+      serif: '"Noto Serif TC", "Songti TC", "STSong", "SimSun", serif',
+      sans: '"Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "微軟正黑體", sans-serif',
+      lishu: '"LiSu", "隸書", "Lishu TC", "SimLi", "BiauKai", serif',
+      xingkai: '"Xingkai SC", "行楷", "STXingkai", "DFKai-SB", serif'
+    };
+
+    const dom = {
+      textContent: document.getElementById('textContent'),
+      quickSampleSelect: document.getElementById('quickSampleSelect'),
+      skipPunctuation: document.getElementById('skipPunctuation'),
+      preserveLineBreaks: document.getElementById('preserveLineBreaks'),
+      charCountLabel: document.getElementById('charCountLabel'),
+      gridTypeSelect: document.getElementById('gridTypeSelect'),
+      fontFamilySelect: document.getElementById('fontFamilySelect'),
+      customNameArea: document.getElementById('customNameArea'),
+      customFontNameInput: document.getElementById('customFontNameInput'),
+      btnApplyFontName: document.getElementById('btnApplyFontName'),
+      customFileArea: document.getElementById('customFileArea'),
+      fontFileInput: document.getElementById('fontFileInput'),
+      fontFileLabel: document.getElementById('fontFileLabel'),
+      fontStatusBadge: document.getElementById('fontStatusBadge'),
+      traceColor: document.getElementById('traceColor'),
+      traceOpacity: document.getElementById('traceOpacity'),
+      opacityLabel: document.getElementById('opacityLabel'),
+      fontScale: document.getElementById('fontScale'),
+      fontScaleLabel: document.getElementById('fontScaleLabel'),
+      gridCols: document.getElementById('gridCols'),
+      gridRows: document.getElementById('gridRows'),
+      gridGap: document.getElementById('gridGap'),
+      innerLineStyle: document.getElementById('innerLineStyle'),
+      showHeader: document.getElementById('showHeader'),
+      sheetTitle: document.getElementById('sheetTitle'),
+      sheetAuthor: document.getElementById('sheetAuthor'),
+      sheetDate: document.getElementById('sheetDate'),
+      headerSettingsArea: document.getElementById('headerSettingsArea'),
+      pagesContainer: document.getElementById('pagesContainer'),
+      pageCountBadge: document.getElementById('pageCountBadge'),
+      btnPrintTop: document.getElementById('btnPrintTop'),
+      btnPrintBottom: document.getElementById('btnPrintBottom'),
+      firstBlackDesc: document.getElementById('firstBlackDesc'),
+      alternateDesc: document.getElementById('alternateDesc')
+    };
+
+    const PUNCTUATION_REGEX = /[\s\p{P}\p{S}，。、；：？！…—～「」『』《》（）〔〕【】""''`~@#$%^&*()_+=\-[\]\\{}|;':",./<>?]/gu;
+
+    function init() {
+      if (dom.textContent) dom.textContent.value = state.text;
+      if (dom.preserveLineBreaks) dom.preserveLineBreaks.checked = state.preserveLineBreaks;
+      if (dom.skipPunctuation) dom.skipPunctuation.checked = state.skipPunctuation;
+      
+      if (dom.gridTypeSelect) {
+        dom.gridTypeSelect.addEventListener('change', (e) => {
+          state.gridType = e.target.value;
+          renderPages();
+        });
+      }
+
+      document.querySelectorAll('input[name="writeDirection"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+          if (e.target.checked) {
+            state.direction = e.target.value;
+            if (state.direction === 'vertical') {
+              if (dom.firstBlackDesc) dom.firstBlackDesc.textContent = '每欄頂部第一字為黑體，其餘描紅';
+              if (dom.alternateDesc) dom.alternateDesc.textContent = '一欄描紅臨摹，鄰近一欄留白練習';
+            } else {
+              if (dom.firstBlackDesc) dom.firstBlackDesc.textContent = '每行開頭第一字為黑體，其餘描紅';
+              if (dom.alternateDesc) dom.alternateDesc.textContent = '一行描紅臨摹，緊隨一行留白練習';
+            }
+            renderPages();
+          }
+        });
+      });
+
+      if (dom.textContent) {
+        dom.textContent.addEventListener('input', (e) => {
+          state.text = e.target.value;
+          renderPages();
+        });
+      }
+
+      if (dom.quickSampleSelect) {
+        dom.quickSampleSelect.addEventListener('change', (e) => {
+          if (e.target.value) {
+            const sampleText = e.target.value.replace(/\\n/g, '\n');
+            if (dom.textContent) dom.textContent.value = sampleText;
+            state.text = sampleText;
+            renderPages();
+          }
+        });
+      }
+
+      if (dom.skipPunctuation) {
+        dom.skipPunctuation.addEventListener('change', (e) => {
+          state.skipPunctuation = e.target.checked;
+          renderPages();
+        });
+      }
+
+      if (dom.preserveLineBreaks) {
+        dom.preserveLineBreaks.addEventListener('change', (e) => {
+          state.preserveLineBreaks = e.target.checked;
+          renderPages();
+        });
+      }
+
+      if (dom.fontFamilySelect) {
+        dom.fontFamilySelect.addEventListener('change', (e) => {
+          const val = e.target.value;
+          state.fontType = val;
+
+          if (dom.customNameArea) dom.customNameArea.classList.add('hidden');
+          if (dom.customFileArea) dom.customFileArea.classList.add('hidden');
+
+          if (val === 'custom-name') {
+            if (dom.customNameArea) dom.customNameArea.classList.remove('hidden');
+            if (dom.fontStatusBadge) dom.fontStatusBadge.textContent = '自訂名稱字型';
+          } else if (val === 'custom-file') {
+            if (dom.customFileArea) dom.customFileArea.classList.remove('hidden');
+            if (dom.fontStatusBadge) dom.fontStatusBadge.textContent = state.customFontLoaded ? '自訂上傳字型' : '等待上傳';
+          } else if (PRESET_FONTS[val]) {
+            state.activeFontFamily = PRESET_FONTS[val];
+            const labels = {
+              kaiti: '標準楷體',
+              serif: '思源宋體',
+              sans: '思源黑體',
+              lishu: '隸書風格',
+              xingkai: '行楷風格'
+            };
+            if (dom.fontStatusBadge) dom.fontStatusBadge.textContent = labels[val] || '內建字型';
+            document.documentElement.style.setProperty('--practice-font', state.activeFontFamily);
+            renderPages();
+          }
+        });
+      }
+
+      if (dom.btnApplyFontName) {
+        dom.btnApplyFontName.addEventListener('click', () => {
+          const fontName = dom.customFontNameInput ? dom.customFontNameInput.value.trim() : '';
+          if (fontName) {
+            state.activeFontFamily = `"${fontName}", "BiauKai", "標楷體", serif`;
+            if (dom.fontStatusBadge) dom.fontStatusBadge.textContent = fontName;
+            document.documentElement.style.setProperty('--practice-font', state.activeFontFamily);
+            renderPages();
+          }
+        });
+      }
+
+      if (dom.fontFileInput) {
+        dom.fontFileInput.addEventListener('change', async (e) => {
+          const file = e.target.files && e.target.files[0];
+          if (!file) return;
+
+          if (dom.fontFileLabel) dom.fontFileLabel.textContent = `載入中：${file.name}...`;
+
+          try {
+            const fontData = await file.arrayBuffer();
+            const fontFaceName = 'UserCustomFont_' + Date.now();
+            const userFontFace = new FontFace(fontFaceName, fontData);
+
+            await userFontFace.load();
+            document.fonts.add(userFontFace);
+
+            state.activeFontFamily = `"${fontFaceName}", "BiauKai", "標楷體", serif`;
+            state.customFontLoaded = true;
+            document.documentElement.style.setProperty('--practice-font', state.activeFontFamily);
+
+            if (dom.fontFileLabel) dom.fontFileLabel.textContent = `已套用：${file.name}`;
+            if (dom.fontStatusBadge) dom.fontStatusBadge.textContent = file.name.substring(0, 10) + '...';
+            renderPages();
+          } catch (err) {
+            console.error('字型載入失敗', err);
+            if (dom.fontFileLabel) dom.fontFileLabel.textContent = '❌ 字型解析失敗，請確認檔案格式';
+            if (dom.fontStatusBadge) dom.fontStatusBadge.textContent = '載入出錯';
+          }
+        });
+      }
+
+      document.querySelectorAll('input[name="practiceMode"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+          if (e.target.checked) {
+            state.mode = e.target.value;
+            renderPages();
+          }
+        });
+      });
+
+      if (dom.traceColor) {
+        dom.traceColor.addEventListener('input', (e) => {
+          state.traceColor = e.target.value;
+          renderPages();
+        });
+      }
+
+      if (dom.traceOpacity) {
+        dom.traceOpacity.addEventListener('input', (e) => {
+          const val = parseInt(e.target.value, 10);
+          state.traceOpacity = val / 100;
+          if (dom.opacityLabel) dom.opacityLabel.textContent = `${val}%`;
+          renderPages();
+        });
+      }
+
+      document.querySelectorAll('.color-preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const c = btn.getAttribute('data-color');
+          if (dom.traceColor) dom.traceColor.value = c;
+          state.traceColor = c;
+          renderPages();
+        });
+      });
+
+      if (dom.fontScale) {
+        dom.fontScale.addEventListener('input', (e) => {
+          const val = parseInt(e.target.value, 10);
+          state.fontScale = val / 100;
+          if (dom.fontScaleLabel) dom.fontScaleLabel.textContent = `${val}%`;
+          renderPages();
+        });
+      }
+
+      if (dom.gridCols) {
+        dom.gridCols.addEventListener('change', (e) => {
+          state.cols = parseInt(e.target.value, 10);
+          renderPages();
+        });
+      }
+
+      if (dom.gridRows) {
+        dom.gridRows.addEventListener('change', (e) => {
+          state.rows = parseInt(e.target.value, 10);
+          renderPages();
+        });
+      }
+
+      if (dom.gridGap) {
+        dom.gridGap.addEventListener('input', (e) => {
+          state.gridGapMm = Math.max(0, parseFloat(e.target.value) || 0);
+          renderPages();
+        });
+      }
+
+      document.querySelectorAll('.grid-style-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.grid-style-btn').forEach(b => {
+            b.classList.remove('border-[#563F2E]', 'bg-[#f5ede7]', 'text-[#563F2E]', 'font-medium');
+            b.classList.add('border-stone-300', 'text-stone-700');
+          });
+          btn.classList.remove('border-stone-300', 'text-stone-700');
+          btn.classList.add('border-[#563F2E]', 'bg-[#f5ede7]', 'text-[#563F2E]', 'font-medium');
+
+          state.gridOuterColor = btn.getAttribute('data-outer');
+          state.gridInnerColor = btn.getAttribute('data-inner');
+          state.gridOpacity = parseFloat(btn.getAttribute('data-opacity')) || 0.8;
+          renderPages();
+        });
+      });
+
+      if (dom.innerLineStyle) {
+        dom.innerLineStyle.addEventListener('change', (e) => {
+          state.innerDash = e.target.value;
+          renderPages();
+        });
+      }
+
+      if (dom.showHeader) {
+        dom.showHeader.addEventListener('change', (e) => {
+          state.showHeader = e.target.checked;
+          if (dom.headerSettingsArea) {
+            dom.headerSettingsArea.style.display = state.showHeader ? 'block' : 'none';
+          }
+          renderPages();
+        });
+      }
+
+      if (dom.sheetTitle) {
+        dom.sheetTitle.addEventListener('input', (e) => {
+          state.title = e.target.value;
+          renderPages();
+        });
+      }
+
+      if (dom.sheetAuthor) {
+        dom.sheetAuthor.addEventListener('input', (e) => {
+          state.author = e.target.value;
+          renderPages();
+        });
+      }
+
+      if (dom.sheetDate) {
+        dom.sheetDate.addEventListener('input', (e) => {
+          state.date = e.target.value;
+          renderPages();
+        });
+      }
+
+      const triggerPrint = () => window.print();
+      if (dom.btnPrintTop) dom.btnPrintTop.addEventListener('click', triggerPrint);
+      if (dom.btnPrintBottom) dom.btnPrintBottom.addEventListener('click', triggerPrint);
+
+      setTimeout(() => {
+        renderPages();
+      }, 50);
+    }
+
+    function getPreparedLines() {
+      const raw = state.text || '';
+      const lines = raw.split(/\r?\n/);
+      const resultLines = [];
+
+      for (let line of lines) {
+        let cleaned = line;
+        if (state.skipPunctuation) {
+          cleaned = cleaned.replace(PUNCTUATION_REGEX, '');
+        } else {
+          cleaned = cleaned.replace(/[\t ]+/g, '');
+        }
+
+        if (state.preserveLineBreaks) {
+          resultLines.push(Array.from(cleaned));
+        } else {
+          if (cleaned.length > 0) {
+            resultLines.push(Array.from(cleaned));
+          }
+        }
+      }
+
+      return resultLines;
+    }
+
+    function generateCellLayout() {
+      const cells = [];
+      const { mode, cols, rows, direction, preserveLineBreaks } = state;
+      const lineList = getPreparedLines();
+
+      if (preserveLineBreaks) {
+        if (direction === 'vertical') {
+          const colHeight = rows;
+
+          for (const lineChars of lineList) {
+            if (lineChars.length === 0) {
+              for (let i = 0; i < colHeight; i++) cells.push({ char: '', type: 'blank' });
+              continue;
+            }
+
+            if (mode === 'all-trace') {
+              let idx = 0;
+              while (idx < lineChars.length) {
+                for (let r = 0; r < colHeight; r++) {
+                  if (idx < lineChars.length) {
+                    cells.push({ char: lineChars[idx++], type: 'trace' });
+                  } else {
+                    cells.push({ char: '', type: 'blank' });
+                  }
+                }
+              }
+            } else if (mode === 'first-black-trace') {
+              let idx = 0;
+              let isLineStart = true;
+              while (idx < lineChars.length) {
+                for (let r = 0; r < colHeight; r++) {
+                  if (idx < lineChars.length) {
+                    cells.push({
+                      char: lineChars[idx++],
+                      type: (r === 0 && isLineStart) ? 'black' : 'trace'
+                    });
+                  } else {
+                    cells.push({ char: '', type: 'blank' });
+                  }
+                }
+                isLineStart = false;
+              }
+            } else if (mode === 'row-trace-row-blank') {
+              let idx = 0;
+              while (idx < lineChars.length) {
+                for (let r = 0; r < colHeight; r++) {
+                  if (idx < lineChars.length) {
+                    cells.push({ char: lineChars[idx++], type: 'trace' });
+                  } else {
+                    cells.push({ char: '', type: 'blank' });
+                  }
+                }
+                for (let r = 0; r < colHeight; r++) {
+                  cells.push({ char: '', type: 'blank' });
+                }
+              }
+            } else if (mode === 'char-trace-blank') {
+              let idx = 0;
+              while (idx < lineChars.length) {
+                for (let r = 0; r < colHeight; r += 2) {
+                  if (idx < lineChars.length) {
+                    cells.push({ char: lineChars[idx++], type: 'trace' });
+                    cells.push({ char: '', type: 'blank' });
+                  } else {
+                    cells.push({ char: '', type: 'blank' });
+                    if (r + 1 < colHeight) cells.push({ char: '', type: 'blank' });
+                  }
+                }
+              }
+            }
+          }
+        } else {
+          const rowWidth = cols;
+          for (const lineChars of lineList) {
+            if (lineChars.length === 0) {
+              for (let i = 0; i < rowWidth; i++) cells.push({ char: '', type: 'blank' });
+              continue;
+            }
+
+            if (mode === 'all-trace') {
+              let idx = 0;
+              while (idx < lineChars.length) {
+                for (let c = 0; c < rowWidth; c++) {
+                  if (idx < lineChars.length) {
+                    cells.push({ char: lineChars[idx++], type: 'trace' });
+                  } else {
+                    cells.push({ char: '', type: 'blank' });
+                  }
+                }
+              }
+            } else if (mode === 'first-black-trace') {
+              let idx = 0;
+              let isLineStart = true;
+              while (idx < lineChars.length) {
+                for (let c = 0; c < rowWidth; c++) {
+                  if (idx < lineChars.length) {
+                    cells.push({
+                      char: lineChars[idx++],
+                      type: (c === 0 && isLineStart) ? 'black' : 'trace'
+                    });
+                  } else {
+                    cells.push({ char: '', type: 'blank' });
+                  }
+                }
+                isLineStart = false;
+              }
+            } else if (mode === 'row-trace-row-blank') {
+              let idx = 0;
+              while (idx < lineChars.length) {
+                for (let c = 0; c < rowWidth; c++) {
+                  if (idx < lineChars.length) {
+                    cells.push({ char: lineChars[idx++], type: 'trace' });
+                  } else {
+                    cells.push({ char: '', type: 'blank' });
+                  }
+                }
+                for (let c = 0; c < rowWidth; c++) {
+                  cells.push({ char: '', type: 'blank' });
+                }
+              }
+            } else if (mode === 'char-trace-blank') {
+              let idx = 0;
+              while (idx < lineChars.length) {
+                for (let c = 0; c < rowWidth; c += 2) {
+                  if (idx < lineChars.length) {
+                    cells.push({ char: lineChars[idx++], type: 'trace' });
+                    cells.push({ char: '', type: 'blank' });
+                  } else {
+                    cells.push({ char: '', type: 'blank' });
+                    if (c + 1 < rowWidth) cells.push({ char: '', type: 'blank' });
+                  }
+                }
+              }
+            }
+          }
+        }
+      } else {
+        const allChars = lineList.flat();
+        let charIdx = 0;
+        const total = allChars.length;
+
+        if (direction === 'vertical') {
+          const colLength = rows;
+          if (mode === 'all-trace') {
+            while (charIdx < total) cells.push({ char: allChars[charIdx++], type: 'trace' });
+          } else if (mode === 'first-black-trace') {
+            while (charIdx < total) {
+              const posInCol = cells.length % colLength;
+              cells.push({ char: allChars[charIdx++], type: posInCol === 0 ? 'black' : 'trace' });
+            }
+          } else if (mode === 'row-trace-row-blank') {
+            while (charIdx < total) {
+              for (let r = 0; r < colLength; r++) {
+                cells.push({ char: charIdx < total ? allChars[charIdx++] : '', type: charIdx <= total ? 'trace' : 'blank' });
+              }
+              for (let r = 0; r < colLength; r++) cells.push({ char: '', type: 'blank' });
+            }
+          } else if (mode === 'char-trace-blank') {
+            while (charIdx < total) {
+              cells.push({ char: allChars[charIdx++], type: 'trace' });
+              cells.push({ char: '', type: 'blank' });
+            }
+          }
+        } else {
+          if (mode === 'all-trace') {
+            while (charIdx < total) cells.push({ char: allChars[charIdx++], type: 'trace' });
+          } else if (mode === 'first-black-trace') {
+            while (charIdx < total) {
+              const posInRow = cells.length % cols;
+              cells.push({ char: allChars[charIdx++], type: posInRow === 0 ? 'black' : 'trace' });
+            }
+          } else if (mode === 'row-trace-row-blank') {
+            while (charIdx < total) {
+              for (let c = 0; c < cols; c++) {
+                cells.push({ char: charIdx < total ? allChars[charIdx++] : '', type: charIdx <= total ? 'trace' : 'blank' });
+              }
+              for (let c = 0; c < cols; c++) cells.push({ char: '', type: 'blank' });
+            }
+          } else if (mode === 'char-trace-blank') {
+            while (charIdx < total) {
+              cells.push({ char: allChars[charIdx++], type: 'trace' });
+              cells.push({ char: '', type: 'blank' });
+            }
+          }
+        }
+      }
+
+      if (cells.length === 0) {
+        const totalOnePage = state.cols * state.rows;
+        for (let i = 0; i < totalOnePage; i++) cells.push({ char: '', type: 'blank' });
+      }
+
+      return cells;
+    }
+
+    function createTianZiGeSVG(cellData, boxSizePx) {
+      const { char, type } = cellData;
+      const { 
+        gridType,
+        gridOuterColor, 
+        gridInnerColor, 
+        gridOpacity, 
+        innerDash, 
+        traceColor, 
+        traceOpacity, 
+        fontScale,
+        activeFontFamily 
+      } = state;
+
+      const half = boxSizePx / 2;
+      const third1 = boxSizePx / 3;
+      const third2 = (boxSizePx / 3) * 2;
+      const dashAttr = innerDash === 'solid' ? '' : `stroke-dasharray="${innerDash}"`;
+      
+      let textFill = 'none';
+      let textOpacity = 1;
+
+      if (type === 'trace' && char) {
+        textFill = traceColor;
+        textOpacity = traceOpacity;
+      } else if (type === 'black' && char) {
+        textFill = '#1c1917';
+        textOpacity = 1;
+      }
+
+      const fontSize = boxSizePx * fontScale;
+
+      let innerLinesHtml = '';
+
+      if (gridType === 'tian') {
+        innerLinesHtml = `
+          <line x1="${half}" y1="0" x2="${half}" y2="${boxSizePx}" />
+          <line x1="0" y1="${half}" x2="${boxSizePx}" y2="${half}" />
+        `;
+      } else if (gridType === 'mi') {
+        innerLinesHtml = `
+          <line x1="${half}" y1="0" x2="${half}" y2="${boxSizePx}" />
+          <line x1="0" y1="${half}" x2="${boxSizePx}" y2="${half}" />
+          <line x1="0" y1="0" x2="${boxSizePx}" y2="${boxSizePx}" />
+          <line x1="${boxSizePx}" y1="0" x2="0" y2="${boxSizePx}" />
+        `;
+      } else if (gridType === 'jiu') {
+        innerLinesHtml = `
+          <line x1="${third1}" y1="0" x2="${third1}" y2="${boxSizePx}" />
+          <line x1="${third2}" y1="0" x2="${third2}" y2="${boxSizePx}" />
+          <line x1="0" y1="${third1}" x2="${boxSizePx}" y2="${third1}" />
+          <line x1="0" y1="${third2}" x2="${boxSizePx}" y2="${third2}" />
+        `;
+      }
+
+      const svg = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="${boxSizePx}" height="${boxSizePx}" viewBox="0 0 ${boxSizePx} ${boxSizePx}" class="block select-none">
+          <rect width="${boxSizePx}" height="${boxSizePx}" fill="#ffffff" />
+          
+          ${innerLinesHtml ? `
+            <g stroke="${gridInnerColor}" stroke-opacity="${gridOpacity}" stroke-width="0.8" ${dashAttr}>
+              ${innerLinesHtml}
+            </g>
+          ` : ''}
+
+          <rect x="0.5" y="0.5" width="${boxSizePx - 1}" height="${boxSizePx - 1}" fill="none" stroke="${gridOuterColor}" stroke-opacity="${gridOpacity}" stroke-width="1.2" />
+
+          ${char ? `
+            <text 
+              x="${half}" 
+              y="${half}" 
+              text-anchor="middle" 
+              dominant-baseline="central" 
+              style="font-family: ${escapeHtml(activeFontFamily)};"
+              font-size="${fontSize}px" 
+              fill="${textFill}" 
+              fill-opacity="${textOpacity}"
+              font-weight="normal"
+            >${char}</text>
+          ` : ''}
+        </svg>
+      `;
+
+      return svg;
+    }
+
+    function renderPages() {
+      const lines = getPreparedLines();
+      const totalChars = lines.reduce((acc, cur) => acc + cur.length, 0);
+      dom.charCountLabel.textContent = `字數：${totalChars} 字`;
+
+      const cells = generateCellLayout();
+      const cellsPerPage = state.cols * state.rows;
+      const totalPages = Math.max(1, Math.ceil(cells.length / cellsPerPage));
+
+      dom.pageCountBadge.textContent = `共 ${totalPages} 頁`;
+
+      dom.pagesContainer.innerHTML = '';
+
+      const pageMarginTopMm = 12;
+      const pageMarginBottomMm = 10;
+      const pageMarginX = 14;
+      const headerHeightMm = state.showHeader ? 16 : 0;
+      
+      const availableWidthMm = 210 - (pageMarginX * 2);
+      const availableHeightMm = 297 - pageMarginTopMm - pageMarginBottomMm - headerHeightMm;
+
+      const maxBoxByWidth = availableWidthMm / state.cols;
+      const maxBoxByHeight = availableHeightMm / state.rows;
+      
+      const boxSizeMm = Math.min(maxBoxByWidth, maxBoxByHeight);
+      const mmToPx = 3.7795275591;
+      const boxSizePx = Math.floor(boxSizeMm * mmToPx);
+
+      for (let pageIdx = 0; pageIdx < totalPages; pageIdx++) {
+        const pageEl = document.createElement('div');
+        pageEl.className = 'sheet-a4 sheet-preview flex flex-col justify-between';
+        pageEl.style.padding = `${pageMarginTopMm}mm ${pageMarginX}mm ${pageMarginBottomMm}mm ${pageMarginX}mm`;
+
+        let headerHtml = '';
+        if (state.showHeader) {
+          headerHtml = `
+            <div class="w-full flex items-end justify-between border-b-2 border-stone-800/80 pb-2 mb-3">
+              <div class="flex items-baseline gap-3">
+                <span class="font-title font-black text-xl text-stone-900 tracking-wider">${escapeHtml(state.title)}</span>
+                <span class="text-[11px] text-stone-500 font-serif">第 ${pageIdx + 1} 頁 / 共 ${totalPages} 頁</span>
+              </div>
+              <div class="flex items-center gap-6 text-xs text-stone-700 font-serif">
+                <span>${escapeHtml(state.author || '姓名：____________')}</span>
+                <span>${escapeHtml(state.date || '日期：____ 年 ____ 月 ____ 日')}</span>
+              </div>
+            </div>
+          `;
+        }
+
+        const startIndex = pageIdx * cellsPerPage;
+        const pageCells = cells.slice(startIndex, startIndex + cellsPerPage);
+
+        while (pageCells.length < cellsPerPage) {
+          pageCells.push({ char: '', type: 'blank' });
+        }
+
+        let gridHtml = '';
+
+        if (state.direction === 'vertical') {
+          gridHtml = `
+            <div class="flex-1 w-full flex justify-center items-center">
+              <div style="display: flex; flex-direction: row; direction: rtl; justify-content: center;">
+          `;
+
+          for (let col = 0; col < state.cols; col++) {
+            gridHtml += `<div style="display: flex; flex-direction: column; direction: ltr;">`;
+            for (let row = 0; row < state.rows; row++) {
+              const cellIndex = col * state.rows + row;
+              const cellData = pageCells[cellIndex] || { char: '', type: 'blank' };
+              gridHtml += createTianZiGeSVG(cellData, boxSizePx);
+            }
+            gridHtml += `</div>`;
+          }
+
+          gridHtml += `
+              </div>
+            </div>
+          `;
+        } else {
+          gridHtml = `
+            <div class="flex-1 w-full flex justify-center items-center">
+              <div style="display: grid; grid-template-columns: repeat(${state.cols}, ${boxSizeMm}mm); justify-content: center;">
+          `;
+
+          for (const cell of pageCells) {
+            gridHtml += createTianZiGeSVG(cell, boxSizePx);
+          }
+
+          gridHtml += `
+              </div>
+            </div>
+          `;
+        }
+
+        pageEl.innerHTML = headerHtml + gridHtml;
+        dom.pagesContainer.appendChild(pageEl);
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
